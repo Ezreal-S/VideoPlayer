@@ -138,7 +138,7 @@ void Player::stop()
     paused_ = false;
     audioPktQ_.setStop(true);
     videoPktQ_.setStop(true);
-
+    qDebug()<<"1";
     // 调用AudioPlayer的停止函数，否则在暂停状态下调用Player::stop会发生死锁
     if(audioPlayer_){
         audioPlayer_->stop();
@@ -146,15 +146,14 @@ void Player::stop()
 
     if(demuxThread_.joinable())
         demuxThread_.join();
-    if(audioThread_.joinable())
-        audioThread_.join();
     if(videoThread_.joinable())
         videoThread_.join();
+    if(audioThread_.joinable())
+        audioThread_.join();
 
     resetQueues();
     closeAudio();
     closeCodecs();
-
     if(fmtCtx_ != nullptr){
         avformat_close_input(&fmtCtx_);
         fmtCtx_ = nullptr;
@@ -317,7 +316,7 @@ void Player::audioThreadFunc()
         if(ret < 0)
             continue;
         int bytesPerSample = av_get_bytes_per_sample(outFmt_) * outChannels_;
-        while(ret >= 0){
+        while(ret >= 0 && running_){
             ret = avcodec_receive_frame(audioCtx_,frame);
             if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF){
                 av_frame_unref(frame);
@@ -369,7 +368,7 @@ void Player::videoThreadFunc()
         av_packet_free(&pkt);
         if(ret < 0)
             continue;
-        while(ret >=0){
+        while(ret >=0 && running_){
             ret = avcodec_receive_frame(videoCtx_,frame);
             if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
                 break;
