@@ -17,6 +17,8 @@ public:
 
 signals:
     void openFileClicked();
+    void stopClicked();
+    void playerClicked();
 private:
     Ui::CtrlBar *ui;
 

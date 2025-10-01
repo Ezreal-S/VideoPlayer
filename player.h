@@ -4,7 +4,7 @@
 
 
 #include "videowidget.h"
-
+#include "audioplayer.h"
 
 
 extern "C"{
@@ -15,12 +15,14 @@ extern "C"{
 
 }
 
+#include <vector>
 #include <thread>
 #include <atomic>
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
 #include <queue>
+#include <memory>
 
 enum class MediaState{
     Player,
@@ -92,8 +94,7 @@ private:
 
     PacketQueue audioPktQ_;
     PacketQueue videoPktQ_;
-    std::queue<AVFrame*> audioFrameQ_;
-    std::mutex audioFrameMtx_;
+    std::unique_ptr<AudioPlayer> audioPlayer_;
 
     std::atomic<double> audioClock_{0.0};
 
@@ -102,17 +103,19 @@ private:
     int outRate_ = 44100;
     int outChannels_ = 2;
 
-    typedef uint32_t SDL_AudioDeviceID;
-    SDL_AudioDeviceID audioDev_ = 0;
-
     const size_t maxAudioPkts_ = 30;
     const size_t maxVideoPkts_ = 30;
-    const size_t maxAudioFrames_ = 10;
 
     MediaState state_;
 
     // 是否读取到末尾了
     std::atomic<bool> isEof_ = false;
+
+    std::vector<uint8_t> audioBuf_;
+    size_t audioBufIndex_ = 0;
+    size_t audioBufSize_ = 0;
+
+
 
 };
 

@@ -11,8 +11,6 @@ MainWindow::MainWindow(QWidget *parent)
     // 初始化信号
     connectInit();
     player = new Player(ui->openGLWidget);
-    player->openFile("lmtc.mp4");
-    player->play();
 
 }
 
@@ -37,5 +35,10 @@ void MainWindow::connectInit()
             player->play();
         }
 
+    });
+
+    connect(ui->ctrlBar,&CtrlBar::stopClicked,[this]{
+        player->stop();
+        ui->openGLWidget->setFrame(nullptr,nullptr,nullptr,0,0,0,0,0);
     });
 }

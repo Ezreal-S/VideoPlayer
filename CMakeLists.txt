@@ -42,6 +42,7 @@ else()
             videoslider.h videoslider.cpp
             player.h player.cpp
             videowidget.h videowidget.cpp
+            audioplayer.h audioplayer.cpp
         )
     endif()
 endif()
