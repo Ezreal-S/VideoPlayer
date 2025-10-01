@@ -1,9 +1,10 @@
 #include "videowidget.h"
 
 VideoWidget::VideoWidget(QWidget *parent)
-    : QOpenGLWidget{parent},texY(0),texU(0),texV(0),
-    videoW(0),videoH(0)
-{}
+    : QOpenGLWidget{parent},texY(0),texU(0),texV(0)
+{
+    connect(this,&VideoWidget::setFrame,this,&VideoWidget::slotSetFrame,Qt::QueuedConnection);
+}
 
 static const char* vShaderSrc =
     "attribute vec4 vertexIn;      \n"
@@ -37,19 +38,15 @@ VideoWidget::~VideoWidget()
     doneCurrent();
 }
 
-void VideoWidget::setFrame(uchar *yPlane, uchar *uPlane, uchar *vPlane,
-                           int yPitch, int uPitch, int vPitch,
-                           int width, int height) {
-    videoW = width;
-    videoH = height;
-    yStride = yPitch;
-    uStride = uPitch;
-    vStride = vPitch;
-
-    yData = QByteArray((char*)yPlane, yPitch * height);
-    uData = QByteArray((char*)uPlane, uPitch * height/2);
-    vData = QByteArray((char*)vPlane, vPitch * height/2);
-
+void VideoWidget::slotSetFrame(std::shared_ptr<Yuv420PFrame> frame) {
+    if(frame == nullptr)
+        return;
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        frame_ = frame;
+    }
+    width_ = frame_->getWidth();
+    height_ = frame_->getHeight();
     update(); // 触发重绘
 }
 
@@ -74,14 +71,16 @@ void VideoWidget::paintGL()
 {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if(videoW == 0 || videoH == 0)
+    if(width_ == 0 || height_ == 0)
         return;
 
     program.bind();
+
+    std::lock_guard<std::mutex> lock(mtx_);
     // 上传y
     glActiveTexture(GL_TEXTURE0);   // 激活纹理单元0
     glBindTexture(GL_TEXTURE_2D,texY);
-    glTexImage2D(GL_TEXTURE_2D,0,GL_RED,yStride,videoH,0,GL_RED,GL_UNSIGNED_BYTE, yData.constData());
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RED,width_,height_,0,GL_RED,GL_UNSIGNED_BYTE, frame_->yPlane());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -90,7 +89,7 @@ void VideoWidget::paintGL()
     // 上传u
     glActiveTexture(GL_TEXTURE1);   // 激活纹理单元1
     glBindTexture(GL_TEXTURE_2D,texU);
-    glTexImage2D(GL_TEXTURE_2D,0,GL_RED,uStride,videoH/2,0,GL_RED,GL_UNSIGNED_BYTE, uData.constData());
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RED,width_/2,height_/2,0,GL_RED,GL_UNSIGNED_BYTE, frame_->uPlane());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -99,7 +98,7 @@ void VideoWidget::paintGL()
     // 上传v
     glActiveTexture(GL_TEXTURE2);   // 激活纹理单元2
     glBindTexture(GL_TEXTURE_2D,texV);
-    glTexImage2D(GL_TEXTURE_2D,0,GL_RED,vStride,videoH/2,0,GL_RED,GL_UNSIGNED_BYTE, vData.constData());
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RED,width_/2,height_/2,0,GL_RED,GL_UNSIGNED_BYTE, frame_->vPlane());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

@@ -4,7 +4,7 @@
 #include "player.h"
 #include <iostream>
 #include <QDebug>
-
+#include "yuv420pframe.h"
 
 
 void PacketQueue::push(AVPacket *pkt)
@@ -78,9 +78,11 @@ Player::~Player()
 
 bool Player::openFile(const std::string &url)
 {
-    std::lock_guard<std::mutex> lock(mtx_);
+    std::unique_lock<std::mutex> lock(mtx_);
     url_ = url;
-    return initFFmpegCtx();
+    lock.unlock();
+    int ret = initFFmpegCtx();
+    return ret;
 }
 
 bool Player::play()
@@ -149,21 +151,15 @@ void Player::stop()
     if(videoThread_.joinable())
         videoThread_.join();
 
-
     resetQueues();
     closeAudio();
     closeCodecs();
-
-
 
     if(fmtCtx_ != nullptr){
         avformat_close_input(&fmtCtx_);
         fmtCtx_ = nullptr;
     }
 
-    audioBuf_.clear();
-    audioBufSize_ = 0;
-    audioBufIndex_ = 0;
 
     isEof_ = false;
     audioClock_ = 0.0;
@@ -213,6 +209,7 @@ MediaState Player::getState() const
 
 bool Player::initFFmpegCtx()
 {
+    stop();
     int ret = avformat_open_input(&fmtCtx_,url_.c_str(),nullptr,nullptr);
     if(ret < 0){
         std::cerr<<"打开文件失败"<<std::endl;
@@ -262,7 +259,7 @@ void Player::demuxThreadFunc()
             continue;
         }
 
-        if(audioPktQ_.size() >= maxAudioPkts_ /*|| videoPktQ_.size() >= maxVideoPkts_*/){
+        if(audioPktQ_.size() >= maxAudioPkts_ || videoPktQ_.size() >= maxVideoPkts_){
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             continue;
         }
@@ -392,9 +389,8 @@ void Player::videoThreadFunc()
             }
             if(frame->format == AV_PIX_FMT_YUV420P){
                 // 通知ui渲染
-                videoWidget_->setFrame(frame->data[0], frame->data[1], frame->data[2],
-                                      frame->linesize[0], frame->linesize[1], frame->linesize[2],
-                                      frame->width, frame->height);
+                std::shared_ptr<Yuv420PFrame> yuvFrame(std::make_shared<Yuv420PFrame>(frame));
+                emit videoWidget_->setFrame(yuvFrame);
                 av_frame_unref(frame);
             }
         }

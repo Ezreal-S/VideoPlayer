@@ -112,16 +112,12 @@ private:
     int outChannels_ = 2;
 
     const size_t maxAudioPkts_ = 30;
-    const size_t maxVideoPkts_ = 30;
+    const size_t maxVideoPkts_ = 60;
 
     MediaState state_;
 
     // 是否读取到末尾了
     std::atomic<bool> isEof_ = false;
-
-    std::vector<uint8_t> audioBuf_;
-    size_t audioBufIndex_ = 0;
-    size_t audioBufSize_ = 0;
 
 signals:
 

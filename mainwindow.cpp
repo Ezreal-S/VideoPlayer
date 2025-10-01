@@ -41,7 +41,7 @@ void MainWindow::connectInit()
 
     connect(ui->ctrlBar,&CtrlBar::stopClicked,this,[this]{
         player->stop();
-        ui->openGLWidget->setFrame(nullptr,nullptr,nullptr,0,0,0,0,0);
+        ui->openGLWidget->setFrame(nullptr);
         // 停止播放后应该更新播放/暂停键状态
         emit ui->ctrlBar->updatePlayBtnState(false);
     });

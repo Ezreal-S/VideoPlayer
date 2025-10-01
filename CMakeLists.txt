@@ -43,6 +43,7 @@ else()
             player.h player.cpp
             videowidget.h videowidget.cpp
             audioplayer.h audioplayer.cpp
+            yuv420pframe.h yuv420pframe.cpp
         )
     endif()
 endif()
