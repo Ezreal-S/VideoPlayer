@@ -65,6 +65,9 @@ Player::Player(VideoWidget *videoWidget)
     if(SDL_Init(SDL_INIT_AUDIO) != 0){
         throw std::runtime_error(std::string("SDL_Init失败") + SDL_GetError());
     }
+
+    // 初始化播放器状态为停止
+    state_ = MediaState::Stop;
 }
 
 Player::~Player()
@@ -75,45 +78,20 @@ Player::~Player()
 
 bool Player::openFile(const std::string &url)
 {
-    stop();
     url_ = url;
-    int ret = avformat_open_input(&fmtCtx_,url.c_str(),nullptr,nullptr);
-    if(ret < 0){
-        std::cerr<<"打开文件失败"<<std::endl;
-        return false;
-    }
-    ret = avformat_find_stream_info(fmtCtx_,nullptr);
-    if(ret < 0){
-        std::cerr<<"读取流信息失败"<<std::endl;
-        return false;
-    }
-
-    audioStreamIndex_ = -1;
-    videoStreamIndex_ = -1;
-
-    for(unsigned i = 0; i < fmtCtx_->nb_streams; ++i){
-        if(fmtCtx_->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
-            audioStreamIndex_ = i;
-        if(fmtCtx_->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
-            videoStreamIndex_ = i;
-    }
-    if(audioStreamIndex_ < 0){
-        std::cerr<<"未找到音频流"<<std::endl;
-        return false;
-    }
-    if(videoStreamIndex_ < 0){
-        std::cerr<<"未找到视频流"<<std::endl;
-        return false;
-    }
-
-    openCodecs();
-    openAudio();
-    return true;
+    return initFFmpegCtx();
 }
 
-void Player::play()
+bool Player::play()
 {
-    if(running_) return;
+    if(running_) return false;
+    if(url_ == "")
+        return false;
+    if(!initCtx_ ){
+        if(!initFFmpegCtx())
+            return false;
+    }
+
     running_ = true;
     paused_ = false;
 
@@ -126,12 +104,20 @@ void Player::play()
 
     // 开启音频播放
     audioPlayer_->play();
+    // 更新播放状态
+    state_ = MediaState::Play;
+    return true;
 }
 
 void Player::pause()
 {
+    // 如果是停止状态，则直接返回不做处理
+    if(state_ == MediaState::Stop)
+        return;
+    // 变换状态：播放->暂停，暂停->播放
     bool p = !paused_.load();
-    paused_ = p;
+    paused_.store(p);
+    state_ = p ? MediaState::Pause: MediaState::Play;
     // 播放/暂停音频设备
     if(audioPlayer_)
         audioPlayer_->pause(paused_);
@@ -141,6 +127,8 @@ void Player::stop()
 {
     if(!running_)
         return;
+    // 更新播放状态
+    state_ = MediaState::Stop;
     running_ = false;
     paused_ = false;
     audioPktQ_.setStop(true);
@@ -174,6 +162,7 @@ void Player::stop()
 
     isEof_ = false;
     audioClock_ = 0.0;
+    initCtx_.store(false);
 }
 
 void Player::seek(double seconds)
@@ -208,6 +197,48 @@ void Player::seek(double seconds)
     // 恢复播放
     if(audioPlayer_)
         audioPlayer_->pause(false);
+}
+
+MediaState Player::getState() const
+{
+    return state_;
+}
+
+bool Player::initFFmpegCtx()
+{
+    int ret = avformat_open_input(&fmtCtx_,url_.c_str(),nullptr,nullptr);
+    if(ret < 0){
+        std::cerr<<"打开文件失败"<<std::endl;
+        return false;
+    }
+    ret = avformat_find_stream_info(fmtCtx_,nullptr);
+    if(ret < 0){
+        std::cerr<<"读取流信息失败"<<std::endl;
+        return false;
+    }
+
+    audioStreamIndex_ = -1;
+    videoStreamIndex_ = -1;
+
+    for(unsigned i = 0; i < fmtCtx_->nb_streams; ++i){
+        if(fmtCtx_->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
+            audioStreamIndex_ = i;
+        if(fmtCtx_->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+            videoStreamIndex_ = i;
+    }
+    if(audioStreamIndex_ < 0){
+        std::cerr<<"未找到音频流"<<std::endl;
+        return false;
+    }
+    if(videoStreamIndex_ < 0){
+        std::cerr<<"未找到视频流"<<std::endl;
+        return false;
+    }
+
+    openCodecs();
+    openAudio();
+    initCtx_.store(true);
+    return true;
 }
 
 void Player::demuxThreadFunc()

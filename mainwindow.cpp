@@ -33,12 +33,37 @@ void MainWindow::connectInit()
             qDebug()<<filePath;
             player->openFile(filePath.toStdString());
             player->play();
+            // 开始播放后应该更新播放/暂停键状态
+            emit ui->ctrlBar->updatePlayBtnState(true);
         }
 
     });
 
-    connect(ui->ctrlBar,&CtrlBar::stopClicked,[this]{
+    connect(ui->ctrlBar,&CtrlBar::stopClicked,this,[this]{
         player->stop();
         ui->openGLWidget->setFrame(nullptr,nullptr,nullptr,0,0,0,0,0);
+        // 停止播放后应该更新播放/暂停键状态
+        emit ui->ctrlBar->updatePlayBtnState(false);
+    });
+
+    connect(ui->ctrlBar,&CtrlBar::playClicked,this,[this]{
+        auto state = player->getState();
+        if(state == MediaState::Stop){
+            if(player->play()){
+                emit ui->ctrlBar->updatePlayBtnState(true);
+                return;
+            }
+            emit ui->ctrlBar->updatePlayBtnState(false);
+            return;
+        }
+        if(state == MediaState::Play){
+            player->pause();
+            emit ui->ctrlBar->updatePlayBtnState(false);
+        }
+        else if(state == MediaState::Pause){
+            player->pause();
+            emit ui->ctrlBar->updatePlayBtnState(true);
+        }
+
     });
 }

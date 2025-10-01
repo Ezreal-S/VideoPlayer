@@ -25,7 +25,7 @@ extern "C"{
 #include <memory>
 
 enum class MediaState{
-    Player,
+    Play,
     Pause,
     Stop
 };
@@ -53,14 +53,19 @@ public:
     // 打开文件
     bool openFile(const std::string& url);
     // 开始播放
-    void play();
+    bool play();
     // 暂停/继续
     void pause();
     // 停止
     void stop();
     // 跳转
     void seek(double seconds);
+
+
+
+    MediaState getState()const;
 private:
+    bool initFFmpegCtx();
     // 解复用线程
     void demuxThreadFunc();
     // 音频解码线程
@@ -91,6 +96,7 @@ private:
 
     std::atomic<bool> running_{false};
     std::atomic<bool> paused_{false};
+    std::atomic<bool> initCtx_{false};
 
     PacketQueue audioPktQ_;
     PacketQueue videoPktQ_;
@@ -115,7 +121,7 @@ private:
     size_t audioBufIndex_ = 0;
     size_t audioBufSize_ = 0;
 
-
+signals:
 
 };
 

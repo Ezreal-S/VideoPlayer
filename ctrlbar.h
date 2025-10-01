@@ -18,7 +18,10 @@ public:
 signals:
     void openFileClicked();
     void stopClicked();
-    void playerClicked();
+    void playClicked();
+    void pauseClicked();
+
+    void updatePlayBtnState(bool paused);
 private:
     Ui::CtrlBar *ui;
 

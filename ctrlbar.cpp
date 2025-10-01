@@ -24,8 +24,17 @@ CtrlBar::CtrlBar(QWidget *parent)
         emit stopClicked();
     });
     connect(this->ui->play_btn,&QPushButton::clicked,this,[this]{
-        emit playerClicked();
+        emit playClicked();
     });
+
+    connect(this,&CtrlBar::updatePlayBtnState,this,[this](bool paused){
+        // 为true则代表正在播放，按钮标题应为暂停
+        if(paused == true)
+            this->ui->play_btn->setText(tr("暂停"));
+        else
+            this->ui->play_btn->setText(tr("播放"));
+    });
+
 }
 
 CtrlBar::~CtrlBar()
