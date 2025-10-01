@@ -90,6 +90,8 @@ private:
     int audioStreamIndex_ = -1;
     int videoStreamIndex_ = -1;
 
+    mutable std::mutex mtx_;
+
     std::thread demuxThread_;
     std::thread audioThread_;
     std::thread videoThread_;

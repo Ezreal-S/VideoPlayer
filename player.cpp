@@ -78,12 +78,14 @@ Player::~Player()
 
 bool Player::openFile(const std::string &url)
 {
+    std::lock_guard<std::mutex> lock(mtx_);
     url_ = url;
     return initFFmpegCtx();
 }
 
 bool Player::play()
 {
+    std::lock_guard<std::mutex> lock(mtx_);
     if(running_) return false;
     if(url_ == "")
         return false;
@@ -111,6 +113,7 @@ bool Player::play()
 
 void Player::pause()
 {
+    std::lock_guard<std::mutex> lock(mtx_);
     // 如果是停止状态，则直接返回不做处理
     if(state_ == MediaState::Stop)
         return;
@@ -125,14 +128,19 @@ void Player::pause()
 
 void Player::stop()
 {
+    std::lock_guard<std::mutex> lock(mtx_);
     if(!running_)
         return;
-    // 更新播放状态
-    state_ = MediaState::Stop;
+
     running_ = false;
     paused_ = false;
     audioPktQ_.setStop(true);
     videoPktQ_.setStop(true);
+
+    // 调用AudioPlayer的停止函数，否则在暂停状态下调用Player::stop会发生死锁
+    if(audioPlayer_){
+        audioPlayer_->stop();
+    }
 
     if(demuxThread_.joinable())
         demuxThread_.join();
@@ -141,10 +149,7 @@ void Player::stop()
     if(videoThread_.joinable())
         videoThread_.join();
 
-    // 防止在stop时访问数据，先暂停SDL音频设备
-    if(audioPlayer_){
-        audioPlayer_->pause(true);
-    }
+
     resetQueues();
     closeAudio();
     closeCodecs();
@@ -163,6 +168,8 @@ void Player::stop()
     isEof_ = false;
     audioClock_ = 0.0;
     initCtx_.store(false);
+    // 更新播放状态
+    state_ = MediaState::Stop;
 }
 
 void Player::seek(double seconds)
