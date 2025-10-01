@@ -17,6 +17,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+    void connectInit();
 private:
     Ui::MainWindow *ui;
     class Player* player;

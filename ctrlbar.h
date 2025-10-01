@@ -15,6 +15,8 @@ public:
     explicit CtrlBar(QWidget *parent = nullptr);
     ~CtrlBar();
 
+signals:
+    void openFileClicked();
 private:
     Ui::CtrlBar *ui;
 

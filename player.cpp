@@ -69,10 +69,7 @@ Player::Player(VideoWidget *videoWidget)
 Player::~Player()
 {
     stop();
-    closeAudio();
-    closeCodecs();
-    if(fmtCtx_)
-        avformat_close_input(&fmtCtx_);
+
     SDL_Quit();
 }
 
@@ -148,7 +145,7 @@ void Player::stop()
     running_ = false;
     paused_ = false;
     audioPktQ_.setStop(true);
-    audioPktQ_.setStop(true);
+    videoPktQ_.setStop(true);
 
     if(demuxThread_.joinable())
         demuxThread_.join();
@@ -158,6 +155,15 @@ void Player::stop()
         videoThread_.join();
 
     resetQueues();
+    closeAudio();
+    closeCodecs();
+    if(fmtCtx_ != nullptr){
+        avformat_close_input(&fmtCtx_);
+        fmtCtx_ = nullptr;
+    }
+
+    isEof_ = false;
+    audioClock_ = 0.0;
 }
 
 void Player::seek(double seconds)
@@ -267,8 +273,6 @@ void Player::audioThreadFunc()
             continue;
         }
 
-
-        qDebug()<<pkt->pts;
         int ret = avcodec_send_packet(audioCtx_,pkt);
         av_packet_free(&pkt);
         if(ret < 0)
@@ -328,6 +332,7 @@ void Player::videoThreadFunc()
                 pts = frame->pts * av_q2d(vtb);
 
             double diff = pts - audioClock_.load();
+            //qDebug()<<pts<<" "<<audioClock_.load()<<" "<<diff;
             if(diff > 0)
                 std::this_thread::sleep_for(std::chrono::duration<double>(diff));
             else if(diff < -0.1){
@@ -436,6 +441,12 @@ void Player::closeCodecs()
 void Player::openAudio()
 {
     if (audioStreamIndex_ < 0) return;
+
+    // 如果之前已经打开了音频设备，先关闭它
+    if (audioDev_ != 0) {
+        SDL_CloseAudioDevice(audioDev_);
+        audioDev_ = 0;
+    }
     SDL_AudioSpec spec{};
     spec.freq = outRate_;
     spec.format = AUDIO_S16SYS;

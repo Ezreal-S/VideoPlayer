@@ -16,7 +16,8 @@ CtrlBar::CtrlBar(QWidget *parent)
     ui->speed_cb->addItem("2.0x",2.0);
     ui->speed_cb->setCurrentIndex(1);
 
-
+    // 初始化信号
+    connect(this->ui->open_btn,&QPushButton::clicked,this,&CtrlBar::openFileClicked);
 }
 
 CtrlBar::~CtrlBar()
