@@ -23,6 +23,7 @@ extern "C"{
 #include <condition_variable>
 #include <queue>
 #include <memory>
+#include <QObject>
 
 enum class MediaState{
     Play,
@@ -45,8 +46,9 @@ private:
     bool stop_{false};
 };
 
-class Player
+class Player : public QObject
 {
+Q_OBJECT
 public:
     Player(VideoWidget* videoWidget);
     ~Player();
@@ -120,7 +122,7 @@ private:
     std::atomic<bool> isEof_ = false;
 
 signals:
-
+    void playbackProgress(double currentTime, double totalTime);
 };
 
 #endif // PLAYER_H

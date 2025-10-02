@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 
+class Player;
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -20,6 +22,6 @@ public:
     void connectInit();
 private:
     Ui::MainWindow *ui;
-    class Player* player;
+    Player* player;
 };
 #endif // MAINWINDOW_H

@@ -22,9 +22,13 @@ signals:
     void pauseClicked();
 
     void updatePlayBtnState(bool paused);
+public slots:
+    // 更新进度条槽函数
+    void updateProgress(double currentTime, double totalTime);
 private:
     Ui::CtrlBar *ui;
 
+    bool isDragging_ = false;
 };
 
 #endif // CTRLBAR_H

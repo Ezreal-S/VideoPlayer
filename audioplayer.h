@@ -22,13 +22,18 @@ public:
     size_t pop(uint8_t* dst,size_t len);
     void stop();
     size_t size()const;
+    void clear();
+    bool isStopped() const;
+
 private:
     size_t capacity_;
     std::deque<uint8_t> buffer_;
     mutable std::mutex mutex_;
     std::condition_variable cvNotEmpty_;
     std::condition_variable cvNotFull_;
-    bool stop_;
+    bool stop_ = false;
+
+
 
 };
 
@@ -43,6 +48,15 @@ public:
     void pause(bool paused);
     void stop();
     double getAudioClock() const;
+
+
+    void setEof(bool b) {
+        eof_ = b;
+    }
+
+    bool isEof() const {
+        return eof_;
+    }
 private:
     AudioRingBuffer buffer_;
     int outRate_;
@@ -50,7 +64,7 @@ private:
     int bytesPerSample_;
     double audioClock_;
     static void audioCallbackWrapper(void* userdata, uint8_t* stream, int len);
-
+    bool eof_ = false;
     void audioCallback(uint8_t* stream, int len);
 };
 

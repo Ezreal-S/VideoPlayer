@@ -8,9 +8,11 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+
+    player = new Player(ui->openGLWidget);
     // 初始化信号
     connectInit();
-    player = new Player(ui->openGLWidget);
 
 }
 
@@ -38,7 +40,7 @@ void MainWindow::connectInit()
         }
 
     });
-
+    // 连接停止按钮事件
     connect(ui->ctrlBar,&CtrlBar::stopClicked,this,[this]{
         player->stop();
         ui->openGLWidget->setFrame(nullptr);
@@ -46,6 +48,7 @@ void MainWindow::connectInit()
         emit ui->ctrlBar->updatePlayBtnState(false);
     });
 
+    // 连接播放/暂停按钮的点击事件
     connect(ui->ctrlBar,&CtrlBar::playClicked,this,[this]{
         auto state = player->getState();
         if(state == MediaState::Stop){
@@ -66,4 +69,6 @@ void MainWindow::connectInit()
         }
 
     });
+    // 连接进度条更新
+    connect(this->player,&Player::playbackProgress,ui->ctrlBar,&CtrlBar::updateProgress);
 }

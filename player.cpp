@@ -87,13 +87,16 @@ bool Player::openFile(const std::string &url)
 
 bool Player::play()
 {
-    std::lock_guard<std::mutex> lock(mtx_);
+    std::unique_lock<std::mutex> lock(mtx_);
     if(running_) return false;
     if(url_ == "")
         return false;
     if(!initCtx_ ){
+        lock.unlock();
+        // initFFmpegCtx调用stop也会获取锁，所以必须解除，不然会死锁
         if(!initFFmpegCtx())
             return false;
+        lock.lock();
     }
 
     running_ = true;
@@ -136,9 +139,13 @@ void Player::stop()
 
     running_ = false;
     paused_ = false;
+
+
+
+
     audioPktQ_.setStop(true);
     videoPktQ_.setStop(true);
-    qDebug()<<"1";
+
     // 调用AudioPlayer的停止函数，否则在暂停状态下调用Player::stop会发生死锁
     if(audioPlayer_){
         audioPlayer_->stop();
@@ -152,8 +159,11 @@ void Player::stop()
         audioThread_.join();
 
     resetQueues();
+
     closeAudio();
+
     closeCodecs();
+
     if(fmtCtx_ != nullptr){
         avformat_close_input(&fmtCtx_);
         fmtCtx_ = nullptr;
@@ -258,7 +268,7 @@ void Player::demuxThreadFunc()
             continue;
         }
 
-        if(audioPktQ_.size() >= maxAudioPkts_ || videoPktQ_.size() >= maxVideoPkts_){
+        if(audioPktQ_.size() >= maxAudioPkts_ /*|| videoPktQ_.size() >= maxVideoPkts_*/){
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             continue;
         }
@@ -296,6 +306,8 @@ void Player::demuxThreadFunc()
 void Player::audioThreadFunc()
 {
     AVFrame* frame = av_frame_alloc();
+    int bytesPerSample = av_get_bytes_per_sample(outFmt_) * outChannels_;
+    audioPlayer_->setEof(false);
     while(running_){
         while(paused_ && running_){
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -306,8 +318,26 @@ void Player::audioThreadFunc()
 
         AVPacket* pkt = audioPktQ_.pop(true);
         if(!pkt){
-            if(audioPktQ_.isStopped())
+            if(audioPktQ_.isStopped()){
+                avcodec_send_packet(audioCtx_,nullptr);
+                while(avcodec_receive_frame(audioCtx_,frame) ==0){
+                    /*重采样，计算大小*/
+                    int dst_nb_samples = av_rescale_rnd(
+                        swr_get_delay(swrCtx_, frame->sample_rate) + frame->nb_samples,
+                        outRate_, frame->sample_rate, AV_ROUND_UP);
+
+                    int buf_size = av_samples_get_buffer_size(
+                        nullptr, outChannels_, dst_nb_samples, outFmt_, 1);
+
+                    uint8_t* audio_buf = (uint8_t*)av_malloc(buf_size);
+                    int audio_buf_size = swr_convert(swrCtx_, &audio_buf, dst_nb_samples,
+                                                     (const uint8_t**)frame->data, frame->nb_samples) * bytesPerSample;
+                    audioPlayer_->enqueue(audio_buf,audio_buf_size);
+                    av_free(audio_buf);
+                }
                 break;
+            }
+
             continue;
         }
 
@@ -315,7 +345,7 @@ void Player::audioThreadFunc()
         av_packet_free(&pkt);
         if(ret < 0)
             continue;
-        int bytesPerSample = av_get_bytes_per_sample(outFmt_) * outChannels_;
+
         while(ret >= 0 && running_){
             ret = avcodec_receive_frame(audioCtx_,frame);
             if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF){
@@ -345,6 +375,7 @@ void Player::audioThreadFunc()
             }
         }
     }
+    audioPlayer_->setEof(true);
     av_frame_free(&frame);
 }
 
@@ -352,15 +383,48 @@ void Player::videoThreadFunc()
 {
     AVFrame* frame = av_frame_alloc();
     AVRational vtb = fmtCtx_->streams[videoStreamIndex_]->time_base;
+    double totalTime = fmtCtx_->streams[videoStreamIndex_]->duration * av_q2d(vtb);
     while(running_){
-        if(paused_){
+        while(paused_ && running_){
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
+
+        if(!running_){
+            break;
+        }
+
+
         AVPacket* pkt = videoPktQ_.pop(true);
         if(!pkt){
-            if(videoPktQ_.isStopped())
+            if(videoPktQ_.isStopped()  && isEof_){
+                // flush 解码器
+                avcodec_send_packet(videoCtx_, nullptr);
+                while (avcodec_receive_frame(videoCtx_, frame) == 0) {
+                    double pts = 0.0;
+                    if(frame->best_effort_timestamp != AV_NOPTS_VALUE)
+                        pts = frame->best_effort_timestamp * av_q2d(vtb);
+                    else if(frame->pts != AV_NOPTS_VALUE)
+                        pts = frame->pts * av_q2d(vtb);
+
+                    double diff = pts - audioPlayer_->getAudioClock();
+                    if(diff > 0)
+                        std::this_thread::sleep_for(std::chrono::duration<double>(diff));
+                    else if(diff < -0.1){
+                        continue;
+                        // 丢帧
+                    }
+                    if(frame->format == AV_PIX_FMT_YUV420P){
+                        // 发送进度信号
+                        emit playbackProgress(pts,totalTime);
+                        // 通知ui渲染
+                        std::shared_ptr<Yuv420PFrame> yuvFrame(std::make_shared<Yuv420PFrame>(frame));
+                        emit videoWidget_->setFrame(yuvFrame);
+                        av_frame_unref(frame);
+                    }
+                }
                 break;
+            }
             continue;
         }
 
@@ -387,6 +451,8 @@ void Player::videoThreadFunc()
                 // 丢帧
             }
             if(frame->format == AV_PIX_FMT_YUV420P){
+                // 发送进度信号
+                emit playbackProgress(pts,totalTime);
                 // 通知ui渲染
                 std::shared_ptr<Yuv420PFrame> yuvFrame(std::make_shared<Yuv420PFrame>(frame));
                 emit videoWidget_->setFrame(yuvFrame);
@@ -394,54 +460,9 @@ void Player::videoThreadFunc()
             }
         }
     }
+    qDebug()<<"video queit";
+    av_frame_free(&frame);
 }
-
-// void Player::sdlAudioCallback(void *userdata, Uint8 *stream, int len) {
-//     Player *p = (Player*)userdata;
-//     SDL_memset(stream, 0, len);
-
-//     static uint8_t *audio_buf = nullptr;
-//     static unsigned int audio_buf_size = 0;
-//     static unsigned int audio_buf_index = 0;
-
-//     int bytesPerSample = av_get_bytes_per_sample(p->outFmt_) * p->outChannels_;
-
-//     while (len > 0) {
-//         if (audio_buf_index >= audio_buf_size) {
-//             // 没有缓存，取新帧
-//             std::lock_guard<std::mutex> lk(p->audioFrameMtx_);
-//             if (p->audioFrameQ_.empty()) break;
-
-//             AVFrame *f = p->audioFrameQ_.front();
-//             p->audioFrameQ_.pop();
-
-//             int dst_nb_samples = av_rescale_rnd(
-//                 swr_get_delay(p->swrCtx_, f->sample_rate) + f->nb_samples,
-//                 p->outRate_, f->sample_rate, AV_ROUND_UP);
-
-//             int buf_size = av_samples_get_buffer_size(
-//                 nullptr, p->outChannels_, dst_nb_samples, p->outFmt_, 1);
-
-//             if (!audio_buf) audio_buf = (uint8_t*)av_malloc(buf_size);
-//             audio_buf_size = swr_convert(p->swrCtx_, &audio_buf, dst_nb_samples,
-//                                          (const uint8_t**)f->data, f->nb_samples) * bytesPerSample;
-//             audio_buf_index = 0;
-
-//             double duration = (double)f->nb_samples / f->sample_rate;
-//             p->audioClock_ = p->audioClock_ + duration;
-
-//             av_frame_free(&f);
-//         }
-
-//         int copy_len = audio_buf_size - audio_buf_index;
-//         if (copy_len > len) copy_len = len;
-//         memcpy(stream, audio_buf + audio_buf_index, copy_len);
-
-//         len -= copy_len;
-//         stream += copy_len;
-//         audio_buf_index += copy_len;
-//     }
-// }
 
 
 

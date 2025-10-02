@@ -40,7 +40,12 @@ VideoWidget::~VideoWidget()
 
 void VideoWidget::slotSetFrame(std::shared_ptr<Yuv420PFrame> frame) {
     if(frame == nullptr)
+    {
+        // 实现stop时设置opengl界面为黑色
+        width_ = height_ = 0;
+        update();
         return;
+    }
     {
         std::lock_guard<std::mutex> lock(mtx_);
         frame_ = frame;
@@ -70,6 +75,7 @@ void VideoWidget::resizeGL(int w, int h)
 void VideoWidget::paintGL()
 {
     glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     if(width_ == 0 || height_ == 0)
         return;

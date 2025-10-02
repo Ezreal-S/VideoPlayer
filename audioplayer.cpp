@@ -48,6 +48,17 @@ size_t AudioRingBuffer::size() const
     return buffer_.size();
 }
 
+void AudioRingBuffer::clear() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    buffer_.clear();
+}
+
+bool AudioRingBuffer::isStopped() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return stop_;
+}
+
+
 AudioPlayer::AudioPlayer(int sampleRate, int channels,AVSampleFormat fmt):
     buffer_(1<<20),outRate_(sampleRate),outChannels_(channels),bytesPerSample_(av_get_bytes_per_sample(fmt))
 {
@@ -85,7 +96,17 @@ void AudioPlayer::pause(bool paused)
 
 void AudioPlayer::stop()
 {
+    // 先暂停音频设备
+    SDL_PauseAudio(1);
+
+    // 停止缓冲区
     buffer_.stop();
+
+    // 清空缓冲区
+    buffer_.clear();
+
+    eof_ = true;
+
     audioClock_ = 0.0;
 }
 
@@ -102,6 +123,10 @@ void AudioPlayer::audioCallbackWrapper(void *userdata, uint8_t *stream, int len)
 
 void AudioPlayer::audioCallback(uint8_t *stream, int len)
 {
+    if (buffer_.size() == 0 && eof_) {
+        SDL_memset(stream, 0, len);
+        return;
+    }
     size_t copied = buffer_.pop(stream,len);
     if(copied < static_cast<size_t>(len)){
         SDL_memset(stream + copied,0,len-copied);
