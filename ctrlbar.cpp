@@ -61,6 +61,8 @@ void CtrlBar::updateProgress(double currentTime, double totalTime)
     if(totalTime <= 0.0){
         ui->now_time_lb->setText("00:00:00");
         ui->total_time_lb->setText("00:00:00");
+        int value = static_cast<int>((currentTime/totalTime) * ui->progress_slid->maximum());
+        ui->progress_slid->setValue(value);
         return;
     }
     static auto formatTime = [](double seconds){

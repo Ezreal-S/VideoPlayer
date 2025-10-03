@@ -46,6 +46,8 @@ void MainWindow::connectInit()
         emit ui->openGLWidget->setFrame(nullptr);
         // 停止播放后应该更新播放/暂停键状态
         emit ui->ctrlBar->updatePlayBtnState(false);
+        // 更新进度条信息
+        emit this->player->playbackProgress(0,0);
     });
 
     // 连接播放/暂停按钮的点击事件
@@ -82,6 +84,8 @@ void MainWindow::connectInit()
         emit ui->openGLWidget->setFrame(nullptr);
         // 停止播放后应该更新播放/暂停键状态
         emit ui->ctrlBar->updatePlayBtnState(false);
+        // 更新进度条信息
+        emit this->player->playbackProgress(0,0);
     });
 
 }

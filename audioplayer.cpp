@@ -105,8 +105,6 @@ void AudioPlayer::stop()
     // 清空缓冲区
     buffer_.clear();
 
-    eof_ = true;
-
     audioClock_ = 0.0;
 }
 
@@ -127,13 +125,6 @@ double AudioPlayer::getAudioClock() const
     return audioClock_;
 }
 
-void AudioPlayer::setEof(bool b) {
-    eof_ = b;
-}
-
-bool AudioPlayer::isEof() const {
-    return eof_;
-}
 
 void AudioPlayer::audioCallbackWrapper(void *userdata, uint8_t *stream, int len)
 {
@@ -143,7 +134,7 @@ void AudioPlayer::audioCallbackWrapper(void *userdata, uint8_t *stream, int len)
 
 void AudioPlayer::audioCallback(uint8_t *stream, int len)
 {
-    if (buffer_.size() == 0 && eof_) {
+    if (buffer_.size() == 0) {
         SDL_memset(stream, 0, len);
         return;
     }

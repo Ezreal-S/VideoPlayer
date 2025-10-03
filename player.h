@@ -120,7 +120,7 @@ private:
     int outChannels_ = 2;
 
     const size_t maxAudioPkts_ = 30;
-    const size_t maxVideoPkts_ = 60;
+    const size_t maxVideoPkts_ = 30;
 
     MediaState state_;
 

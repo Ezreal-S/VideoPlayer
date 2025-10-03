@@ -64,7 +64,6 @@ private:
     int bytesPerSample_;
     std::atomic<double> audioClock_;
     static void audioCallbackWrapper(void* userdata, uint8_t* stream, int len);
-    bool eof_ = false;
     void audioCallback(uint8_t* stream, int len);
 };
 
