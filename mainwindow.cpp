@@ -43,7 +43,7 @@ void MainWindow::connectInit()
     // 连接停止按钮事件
     connect(ui->ctrlBar,&CtrlBar::stopClicked,this,[this]{
         player->stop();
-        ui->openGLWidget->setFrame(nullptr);
+        emit ui->openGLWidget->setFrame(nullptr);
         // 停止播放后应该更新播放/暂停键状态
         emit ui->ctrlBar->updatePlayBtnState(false);
     });
@@ -71,4 +71,17 @@ void MainWindow::connectInit()
     });
     // 连接进度条更新
     connect(this->player,&Player::playbackProgress,ui->ctrlBar,&CtrlBar::updateProgress);
+    // 连接进度条移动seek
+    connect(ui->ctrlBar, &CtrlBar::seekRequested, player, [this](double pos){
+        player->seek(pos); // 自己实现 seek，跳到对应时间
+    });
+
+    //连接播放完成信号
+    connect(this->player,&Player::playFinish,this,[this]{
+        player->stop();
+        emit ui->openGLWidget->setFrame(nullptr);
+        // 停止播放后应该更新播放/暂停键状态
+        emit ui->ctrlBar->updatePlayBtnState(false);
+    });
+
 }

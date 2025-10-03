@@ -20,7 +20,7 @@ signals:
     void stopClicked();
     void playClicked();
     void pauseClicked();
-
+    void seekRequested(double pos);
     void updatePlayBtnState(bool paused);
 public slots:
     // 更新进度条槽函数

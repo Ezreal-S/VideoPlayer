@@ -82,6 +82,7 @@ bool Player::openFile(const std::string &url)
     url_ = url;
     lock.unlock();
     int ret = initFFmpegCtx();
+    qDebug()<<"call oepnfile";
     return ret;
 }
 
@@ -113,6 +114,8 @@ bool Player::play()
     audioPlayer_->play();
     // 更新播放状态
     state_ = MediaState::Play;
+    isEof_ = false;
+    qDebug()<<"call play";
     return true;
 }
 
@@ -129,6 +132,7 @@ void Player::pause()
     // 播放/暂停音频设备
     if(audioPlayer_)
         audioPlayer_->pause(paused_);
+    qDebug()<<"call pause";
 }
 
 void Player::stop()
@@ -139,9 +143,6 @@ void Player::stop()
 
     running_ = false;
     paused_ = false;
-
-
-
 
     audioPktQ_.setStop(true);
     videoPktQ_.setStop(true);
@@ -175,41 +176,84 @@ void Player::stop()
     initCtx_.store(false);
     // 更新播放状态
     state_ = MediaState::Stop;
+    qDebug()<<"call stop";
 }
 
-void Player::seek(double seconds)
-{
-    if(!fmtCtx_)
+void Player::seek(double pos) {
+    if (!fmtCtx_ || videoStreamIndex_ < 0 || audioStreamIndex_ < 0)
         return;
-    // 停止线程
-    running_ = false;
-    if(demuxThread_.joinable()) demuxThread_.join();
-    if(audioThread_.joinable()) audioThread_.join();
-    if(videoThread_.joinable()) videoThread_.join();
 
-    resetQueues();
+    stop();
+    initFFmpegCtx();
+    // 获取总时长（微秒）
+    int64_t duration = fmtCtx_->duration;
+    if (duration <= 0)
+        return;
 
-    // 跳转
-    AVRational tb = fmtCtx_->streams[audioStreamIndex_]->time_base;
-    int64_t ts = (int64_t)(seconds / av_q2d(tb));
-    av_seek_frame(fmtCtx_,audioStreamIndex_,ts,AVSEEK_FLAG_BACKWARD);
-    flushDecoders();
+    // 计算目标位置（秒）
+    double sec = (pos * static_cast<double>(duration))/double(1000000);
+    int64_t m_nSeekingPos = (int64_t)sec / av_q2d(fmtCtx_->streams[videoStreamIndex_]->time_base);
 
-    audioClock_ = seconds;
-    // 重启线程
-    running_ = true;
-    paused_ = false;
-    audioPktQ_.setStop(false);
-    videoPktQ_.setStop(false);
 
-    demuxThread_ = std::thread(&Player::demuxThreadFunc,this);
-    audioThread_ = std::thread(&Player::audioThreadFunc,this);
-    videoThread_ = std::thread(&Player::videoThreadFunc,this);
+    // 执行跳转（使用视频流作为参考）
+    if (av_seek_frame(fmtCtx_,videoStreamIndex_ , m_nSeekingPos, AVSEEK_FLAG_BACKWARD) < 0) {
+        qDebug() << "Seek failed";
+        return;
+    }
 
-    // 恢复播放
-    if(audioPlayer_)
-        audioPlayer_->pause(false);
+    // 重置时钟标志，解复用线程在跳转后读到第一个音频包的情况下，会计算pts传到音频时钟
+    seekChangeClock_ = true;
+    play();
+
+    qDebug() << "Seek to:" << pos << "(" << sec << "s)";
 }
+
+// void Player::seek(double pos) {
+//     std::unique_lock<std::mutex> lock(mtx_);
+
+//     if (!fmtCtx_ || !running_)
+//         return;
+
+//     // 1. 暂停播放但不释放资源
+//     lock.unlock();
+//     pause();
+//     lock.lock();
+//     audioPlayer_->setSeeking(true);
+//     std::this_thread::sleep_for(std::chrono::milliseconds(500));
+//     // 2. 清空数据包队列
+//     audioPktQ_.clear();
+//     videoPktQ_.clear();
+//     audioPlayer_->clearBuf();
+
+//     // 3. 刷新解码器
+//     if (audioCtx_) avcodec_flush_buffers(audioCtx_);
+//     if (videoCtx_) avcodec_flush_buffers(videoCtx_);
+
+//     // 4. 计算跳转位置
+//     int64_t target_us = static_cast<int64_t>(pos * fmtCtx_->duration);
+
+//     // 5. 执行跳转（关键修改）
+//     int ret = av_seek_frame(fmtCtx_, -1, target_us, AVSEEK_FLAG_BACKWARD);
+//     if (ret < 0) {
+//         qDebug() << "Seek failed:" ;//<< av_err2str(ret);
+//         return;
+//     }
+
+//     // 6. 重置时钟
+//     audioClock_ = static_cast<double>(target_us) / AV_TIME_BASE;
+//     if(audioPlayer_) {
+//         audioPlayer_->setAudioClock(audioClock_);
+//     }
+
+//     // 7. 重置状态
+//     isEof_ = false;
+//     audioPlayer_->setSeeking(false);
+//     // 8. 恢复播放
+//     lock.unlock();
+//     pause();
+//     lock.lock();
+//     qDebug() << "Seek to:" << pos;
+// }
 
 MediaState Player::getState() const
 {
@@ -247,16 +291,22 @@ bool Player::initFFmpegCtx()
         std::cerr<<"未找到视频流"<<std::endl;
         return false;
     }
+    audioStream_ = fmtCtx_->streams[audioStreamIndex_];
+    videoStream_ = fmtCtx_->streams[videoStreamIndex_];
+    // 视频总时长
+    duration_ = fmtCtx_->duration;
 
     openCodecs();
     openAudio();
     initCtx_.store(true);
+    qDebug()<<"call initFFmpegCtx";
     return true;
 }
 
 void Player::demuxThreadFunc()
 {
     while(running_){
+
         if(paused_){
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
@@ -280,6 +330,7 @@ void Player::demuxThreadFunc()
         int ret = av_read_frame(fmtCtx_,pkt);
         if(ret < 0){
             if(ret == AVERROR_EOF && !isEof_){
+                qDebug()<<"yes";
                 isEof_ = true;
                 audioPktQ_.setStop(true);
                 videoPktQ_.setStop(true);
@@ -291,6 +342,13 @@ void Player::demuxThreadFunc()
         }
 
         if (pkt->stream_index == audioStreamIndex_) {
+            if(seekChangeClock_){
+                // 计算PTS
+                double pts = pkt->pts * av_q2d(audioStream_->time_base);
+                audioPlayer_->setAudioClock(pts);
+
+                seekChangeClock_ = false;
+            }
             audioPktQ_.push(pkt);
         }
         else if(pkt->stream_index == videoStreamIndex_){
@@ -332,6 +390,7 @@ void Player::audioThreadFunc()
                     uint8_t* audio_buf = (uint8_t*)av_malloc(buf_size);
                     int audio_buf_size = swr_convert(swrCtx_, &audio_buf, dst_nb_samples,
                                                      (const uint8_t**)frame->data, frame->nb_samples) * bytesPerSample;
+
                     audioPlayer_->enqueue(audio_buf,audio_buf_size);
                     av_free(audio_buf);
                 }
@@ -401,6 +460,7 @@ void Player::videoThreadFunc()
                 // flush 解码器
                 avcodec_send_packet(videoCtx_, nullptr);
                 while (avcodec_receive_frame(videoCtx_, frame) == 0) {
+
                     double pts = 0.0;
                     if(frame->best_effort_timestamp != AV_NOPTS_VALUE)
                         pts = frame->best_effort_timestamp * av_q2d(vtb);
@@ -408,12 +468,14 @@ void Player::videoThreadFunc()
                         pts = frame->pts * av_q2d(vtb);
 
                     double diff = pts - audioPlayer_->getAudioClock();
+
                     if(diff > 0)
                         std::this_thread::sleep_for(std::chrono::duration<double>(diff));
                     else if(diff < -0.1){
                         continue;
                         // 丢帧
                     }
+
                     if(frame->format == AV_PIX_FMT_YUV420P){
                         // 发送进度信号
                         emit playbackProgress(pts,totalTime);
@@ -423,6 +485,7 @@ void Player::videoThreadFunc()
                         av_frame_unref(frame);
                     }
                 }
+                emit playFinish();
                 break;
             }
             continue;
@@ -437,6 +500,7 @@ void Player::videoThreadFunc()
             if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
                 break;
             if(ret < 0) break;
+
             double pts = 0.0;
             if(frame->best_effort_timestamp != AV_NOPTS_VALUE)
                 pts = frame->best_effort_timestamp * av_q2d(vtb);
@@ -444,12 +508,14 @@ void Player::videoThreadFunc()
                 pts = frame->pts * av_q2d(vtb);
 
             double diff = pts - audioPlayer_->getAudioClock();
+
             if(diff > 0)
                 std::this_thread::sleep_for(std::chrono::duration<double>(diff));
             else if(diff < -0.1){
                 continue;
                 // 丢帧
             }
+
             if(frame->format == AV_PIX_FMT_YUV420P){
                 // 发送进度信号
                 emit playbackProgress(pts,totalTime);
@@ -459,6 +525,9 @@ void Player::videoThreadFunc()
                 av_frame_unref(frame);
             }
         }
+    }
+    if(isEof_){
+        emit playFinish();
     }
     qDebug()<<"video queit";
     av_frame_free(&frame);

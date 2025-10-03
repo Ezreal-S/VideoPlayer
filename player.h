@@ -61,7 +61,7 @@ public:
     // 停止
     void stop();
     // 跳转
-    void seek(double seconds);
+    void seek(double pos);
 
 
 
@@ -91,6 +91,12 @@ private:
     AVCodecContext* videoCtx_ = nullptr;
     int audioStreamIndex_ = -1;
     int videoStreamIndex_ = -1;
+    AVStream* audioStream_ = nullptr;
+    AVStream* videoStream_ = nullptr;
+
+
+    // 视频总时长
+    double duration_ = 0.0;
 
     mutable std::mutex mtx_;
 
@@ -121,8 +127,11 @@ private:
     // 是否读取到末尾了
     std::atomic<bool> isEof_ = false;
 
+    bool seekChangeClock_ = false;
+
 signals:
     void playbackProgress(double currentTime, double totalTime);
+    void playFinish();
 };
 
 #endif // PLAYER_H

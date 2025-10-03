@@ -45,9 +45,10 @@ CtrlBar::CtrlBar(QWidget *parent)
 
     connect(this->ui->progress_slid,&QSlider::sliderReleased,this,[this]{
         isDragging_ = false;
-        // double pos = ui->progress_slid->value() / static_cast<double>(ui->progress_slid->maximum());
-        // emit seekRequested(pos); // 发信号告诉 Player 去 seek
+        double pos = ui->progress_slid->value() / static_cast<double>(ui->progress_slid->maximum());
+        emit seekRequested(pos); // 发信号告诉 Player 去 seek
     });
+
 }
 
 CtrlBar::~CtrlBar()

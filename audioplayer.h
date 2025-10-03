@@ -4,6 +4,7 @@
 
 #include <deque>
 #include <mutex>
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 
@@ -47,25 +48,26 @@ public:
     void play();
     void pause(bool paused);
     void stop();
+    void clearBuf();
+
+    void setAudioClock(double v);
     double getAudioClock() const;
 
 
-    void setEof(bool b) {
-        eof_ = b;
-    }
+    void setEof(bool b);
 
-    bool isEof() const {
-        return eof_;
-    }
+    bool isEof() const;
 private:
     AudioRingBuffer buffer_;
     int outRate_;
     int outChannels_;
     int bytesPerSample_;
-    double audioClock_;
+    std::atomic<double> audioClock_;
     static void audioCallbackWrapper(void* userdata, uint8_t* stream, int len);
     bool eof_ = false;
     void audioCallback(uint8_t* stream, int len);
 };
 
 #endif // AUDIOPLAYER_H
+
+

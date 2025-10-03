@@ -110,9 +110,29 @@ void AudioPlayer::stop()
     audioClock_ = 0.0;
 }
 
+void AudioPlayer::clearBuf()
+{
+    buffer_.clear();
+}
+
+
+
+void AudioPlayer::setAudioClock(double v)
+{
+    audioClock_ = v;
+}
+
 double AudioPlayer::getAudioClock() const
 {
     return audioClock_;
+}
+
+void AudioPlayer::setEof(bool b) {
+    eof_ = b;
+}
+
+bool AudioPlayer::isEof() const {
+    return eof_;
 }
 
 void AudioPlayer::audioCallbackWrapper(void *userdata, uint8_t *stream, int len)
@@ -131,5 +151,6 @@ void AudioPlayer::audioCallback(uint8_t *stream, int len)
     if(copied < static_cast<size_t>(len)){
         SDL_memset(stream + copied,0,len-copied);
     }
-    audioClock_ += double(copied)/(outChannels_*bytesPerSample_*outRate_);
+    audioClock_ = audioClock_ + double(copied)/(outChannels_*bytesPerSample_*outRate_);
 }
+
