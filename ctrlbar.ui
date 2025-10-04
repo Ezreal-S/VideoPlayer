@@ -195,6 +195,23 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QLabel" name="aspect_ratio_label">
+        <property name="text">
+         <string>比例:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="aspect_ratio_cb">
+        <property name="currentText">
+         <string/>
+        </property>
+        <property name="currentIndex">
+         <number>-1</number>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

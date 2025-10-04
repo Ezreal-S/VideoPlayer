@@ -2,7 +2,6 @@
 #include "ui_ctrlbar.h"
 #include <QMouseEvent>
 #include <QDebug>
-#include <string>
 #include <sstream>
 #include <iomanip>
 
@@ -19,6 +18,14 @@ CtrlBar::CtrlBar(QWidget *parent)
     ui->speed_cb->addItem("1.75x",1.75);
     ui->speed_cb->addItem("2.0x",2.0);
     ui->speed_cb->setCurrentIndex(1);
+
+    // 初始化比例选择器
+
+    ui->aspect_ratio_cb->addItem("原始比例", 0);
+    ui->aspect_ratio_cb->addItem("拉伸填充", 1);
+    ui->aspect_ratio_cb->addItem("16:9", 2);
+    ui->aspect_ratio_cb->addItem("4:3", 3);
+    ui->aspect_ratio_cb->addItem("1:1", 4);
 
     // 初始化信号连接
     connect(this->ui->open_btn,&QPushButton::clicked,this,[this]{
@@ -53,6 +60,12 @@ CtrlBar::CtrlBar(QWidget *parent)
     connect(this->ui->vol_slid,&QSlider::sliderReleased,this,[this]{
         float pos = ui->vol_slid->value() / static_cast<float>(ui->vol_slid->maximum());
         emit volumeChanged(pos);
+    });
+
+    // 视频播放比例改变
+    connect(this->ui->aspect_ratio_cb,QOverload<int>::of(&QComboBox::currentIndexChanged),this, [this]{
+        int mode = this->ui->aspect_ratio_cb->currentData().toInt();
+        emit aspectRatioChanged(mode);
     });
 
 }

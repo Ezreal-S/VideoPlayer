@@ -94,4 +94,9 @@ void MainWindow::connectInit()
     connect(this->ui->ctrlBar,&CtrlBar::volumeChanged,this,[this](float vol){
         this->player->setVolume(vol);
     });
+
+    // 修改播放比例
+    connect(this->ui->ctrlBar,&CtrlBar::aspectRatioChanged,this,[this](int val){
+        ui->openGLWidget->setAspectRatioMode(val);
+    });
 }

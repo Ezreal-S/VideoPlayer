@@ -38,20 +38,40 @@ VideoWidget::~VideoWidget()
     doneCurrent();
 }
 
+void VideoWidget::setAspectRatioMode(int mode)
+{
+    // 设置新的比例模式
+    aspectRatioMode_ = static_cast<AspectRatioMode>(mode);
+    // 调用 updateVertices() 根据新比例更新顶点坐标
+    updateVertices();
+    // 调用 update() 触发重绘
+    update();
+}
+
 void VideoWidget::slotSetFrame(std::shared_ptr<Yuv420PFrame> frame) {
-    if(frame == nullptr)
-    {
+    if (frame == nullptr) {
         // 实现stop时设置opengl界面为黑色
         width_ = height_ = 0;
+        aspectRatio_ = 0.0f;
         update();
         return;
     }
+
     {
         std::lock_guard<std::mutex> lock(mtx_);
         frame_ = frame;
     }
+
     width_ = frame_->getWidth();
     height_ = frame_->getHeight();
+
+    if (height_ > 0) {
+        aspectRatio_ = static_cast<float>(width_) / height_;
+    } else {
+        aspectRatio_ = 0.0f;
+    }
+
+    updateVertices();
     update(); // 触发重绘
 }
 
@@ -69,7 +89,10 @@ void VideoWidget::initializeGL()
 
 void VideoWidget::resizeGL(int w, int h)
 {
-    glViewport(0,0,w,h);
+    Q_UNUSED(w);
+    Q_UNUSED(h);
+    updateVertices();
+    //glViewport(0,0,w,h);
 }
 
 void VideoWidget::paintGL()
@@ -114,18 +137,11 @@ void VideoWidget::paintGL()
     program.setUniformValue("texU", 1);
     program.setUniformValue("texV", 2);
 
-    // 绘制一个全屏矩形
-    GLfloat vertices[] = {
-        -1.0f,-1.0f,  1.0f,-1.0f,  -1.0f,1.0f,  1.0f,1.0f
-    };
-    GLfloat texCoords[] = {
-        0.0f,1.0f,  1.0f,1.0f,  0.0f,0.0f,  1.0f,0.0f
-    };
-
+    // 使用计算好的顶点坐标
     program.enableAttributeArray("vertexIn");
-    program.setAttributeArray("vertexIn", GL_FLOAT, vertices, 2);
+    program.setAttributeArray("vertexIn", GL_FLOAT, vertices_, 2);
     program.enableAttributeArray("textureIn");
-    program.setAttributeArray("textureIn", GL_FLOAT, texCoords, 2);
+    program.setAttributeArray("textureIn", GL_FLOAT, texCoords_, 2);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -133,4 +149,65 @@ void VideoWidget::paintGL()
     program.disableAttributeArray("textureIn");
     program.release();
 
+}
+
+void VideoWidget::updateVertices()
+{
+    if (width_ == 0 || height_ == 0) {
+        return;
+    }
+
+    float targetAspect = aspectRatio_;
+
+    switch (aspectRatioMode_) {
+    case Stretch:
+        // 拉伸填充整个窗口
+        vertices_[0] = -1.0f; vertices_[1] = -1.0f; // 左下
+        vertices_[2] =  1.0f; vertices_[3] = -1.0f; // 右下
+        vertices_[4] = -1.0f; vertices_[5] =  1.0f; // 左上
+        vertices_[6] =  1.0f; vertices_[7] =  1.0f; // 右上
+        return;
+
+    case Ratio16_9:
+        targetAspect = 16.0f / 9.0f;
+        break;
+
+    case Ratio4_3:
+        targetAspect = 4.0f / 3.0f;
+        break;
+
+    case Ratio1_1:
+        targetAspect = 1.0f;
+        break;
+
+    case OriginalAspect:
+    default:
+        // 使用原始比例
+        break;
+    }
+
+    // 计算窗口宽高比
+    float widgetAspect = static_cast<float>(width()) / height();
+
+    // 计算保持目标比例的正确显示区域
+    float x = 0.0f;
+    float y = 0.0f;
+    float w = 1.0f;
+    float h = 1.0f;
+
+    if (widgetAspect > targetAspect) {
+        // 窗口比视频宽，左右留黑边
+        w = targetAspect / widgetAspect;
+        x = (1.0f - w) / 2.0f;
+    } else {
+        // 窗口比视频高，上下留黑边
+        h = widgetAspect / targetAspect;
+        y = (1.0f - h) / 2.0f;
+    }
+
+    // 转换为OpenGL坐标
+    vertices_[0] = -1.0f + 2*x; vertices_[1] = -1.0f + 2*y; // 左下
+    vertices_[2] =  1.0f - 2*x; vertices_[3] = -1.0f + 2*y; // 右下
+    vertices_[4] = -1.0f + 2*x; vertices_[5] =  1.0f - 2*y; // 左上
+    vertices_[6] =  1.0f - 2*x; vertices_[7] =  1.0f - 2*y; // 右上
 }
