@@ -63,6 +63,10 @@ public:
     // 跳转
     void seek(double pos);
 
+    // 设置音量
+    void setVolume(float volume);
+    // 获取音量
+    float getVolume() const;
 
 
     MediaState getState()const;
@@ -128,7 +132,8 @@ private:
     std::atomic<bool> isEof_ = false;
 
     bool seekChangeClock_ = false;
-
+    // 音量大小
+    float volume_ = 1.f;
 signals:
     void playbackProgress(double currentTime, double totalTime);
     void playFinish();

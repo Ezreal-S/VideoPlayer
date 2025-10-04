@@ -43,10 +43,16 @@ CtrlBar::CtrlBar(QWidget *parent)
         isDragging_ = true;
     });
 
+    // seek信号
     connect(this->ui->progress_slid,&QSlider::sliderReleased,this,[this]{
         isDragging_ = false;
         double pos = ui->progress_slid->value() / static_cast<double>(ui->progress_slid->maximum());
         emit seekRequested(pos); // 发信号告诉 Player 去 seek
+    });
+
+    connect(this->ui->vol_slid,&QSlider::sliderReleased,this,[this]{
+        float pos = ui->vol_slid->value() / static_cast<float>(ui->vol_slid->maximum());
+        emit volumeChanged(pos);
     });
 
 }
@@ -61,8 +67,7 @@ void CtrlBar::updateProgress(double currentTime, double totalTime)
     if(totalTime <= 0.0){
         ui->now_time_lb->setText("00:00:00");
         ui->total_time_lb->setText("00:00:00");
-        int value = static_cast<int>((currentTime/totalTime) * ui->progress_slid->maximum());
-        ui->progress_slid->setValue(value);
+        ui->progress_slid->setValue(0);
         return;
     }
     static auto formatTime = [](double seconds){

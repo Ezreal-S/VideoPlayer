@@ -125,6 +125,14 @@ double AudioPlayer::getAudioClock() const
     return audioClock_;
 }
 
+void AudioPlayer::setVolume(float volume) {
+    volume_ = std::clamp(volume, 0.0f, 1.0f);
+}
+
+float AudioPlayer::getVolume() const {
+    return volume_;
+}
+
 
 void AudioPlayer::audioCallbackWrapper(void *userdata, uint8_t *stream, int len)
 {
@@ -132,16 +140,38 @@ void AudioPlayer::audioCallbackWrapper(void *userdata, uint8_t *stream, int len)
     self->audioCallback(stream,len);
 }
 
-void AudioPlayer::audioCallback(uint8_t *stream, int len)
-{
+// void AudioPlayer::audioCallback(uint8_t *stream, int len)
+// {
+//     if (buffer_.size() == 0) {
+//         SDL_memset(stream, 0, len);
+//         return;
+//     }
+//     size_t copied = buffer_.pop(stream,len);
+//     if(copied < static_cast<size_t>(len)){
+//         SDL_memset(stream + copied,0,len-copied);
+//     }
+//     audioClock_ = audioClock_ + double(copied)/(outChannels_*bytesPerSample_*outRate_);
+// }
+
+void AudioPlayer::audioCallback(uint8_t *stream, int len) {
+    SDL_memset(stream, 0, len); // 清空输出缓冲区
+
     if (buffer_.size() == 0) {
-        SDL_memset(stream, 0, len);
         return;
     }
-    size_t copied = buffer_.pop(stream,len);
-    if(copied < static_cast<size_t>(len)){
-        SDL_memset(stream + copied,0,len-copied);
-    }
-    audioClock_ = audioClock_ + double(copied)/(outChannels_*bytesPerSample_*outRate_);
-}
 
+    // 使用临时缓冲区
+    std::vector<uint8_t> temp(len);
+    size_t copied = buffer_.pop(temp.data(), len);
+
+    if (copied < static_cast<size_t>(len)) {
+        SDL_memset(temp.data() + copied, 0, len - copied);
+    }
+
+    // 应用音量控制 - 核心代码
+    int sdlVolume = static_cast<int>(volume_ * SDL_MIX_MAXVOLUME);
+    SDL_MixAudio(stream, temp.data(), len, sdlVolume);
+
+    // 更新音频时钟
+    audioClock_ = audioClock_ + double(copied) / (outChannels_ * bytesPerSample_ * outRate_);
+}

@@ -22,6 +22,8 @@ signals:
     void pauseClicked();
     void seekRequested(double pos);
     void updatePlayBtnState(bool paused);
+    // 音量改变信号
+    void volumeChanged(float vol);
 public slots:
     // 更新进度条槽函数
     void updateProgress(double currentTime, double totalTime);

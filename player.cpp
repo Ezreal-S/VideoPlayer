@@ -110,6 +110,8 @@ bool Player::play()
     audioThread_ = std::thread(&Player::audioThreadFunc,this);
     videoThread_ = std::thread(&Player::videoThreadFunc,this);
 
+    // 更新音量
+    audioPlayer_->setVolume(volume_);
     // 开启音频播放
     audioPlayer_->play();
     // 更新播放状态
@@ -145,7 +147,7 @@ void Player::stop()
         running_ = false;
         paused_ = false;
         //isEof_ = true;
-    } // 提前释放锁
+     }// 提前释放锁
 
 
     // 停止包队列
@@ -179,9 +181,15 @@ void Player::stop()
     isEof_ = false;
     audioClock_ = 0.0;
     initCtx_.store(false);
+
     // 更新播放状态
     state_ = MediaState::Stop;
+
+    // // 发送进度更新信号，确保进度条复位
+    // emit this->playbackProgress(0.0,0.0);
     qDebug()<<"call stop";
+
+
 }
 
 void Player::seek(double pos) {
@@ -208,12 +216,24 @@ void Player::seek(double pos) {
         return;
     }
 
-    // 重置时钟标志，解复用线程在跳转后读到第一个音频包的情况下，会计算pts传到音频时钟
+    // 重置时钟标志，解复用线程在跳转后读到第一个音频包的情况下，会计算pts传到音频时钟以实现同步
     seekChangeClock_ = true;
     // 重新开始解复用 解码
     play();
 
     qDebug() << "Seek to:" << pos << "(" << sec << "s)";
+}
+
+void Player::setVolume(float volume) {
+    volume_ = std::clamp(volume, 0.0f, 1.0f);
+    if(audioPlayer_){
+        qDebug()<<volume;
+        audioPlayer_->setVolume(volume);
+    }
+}
+
+float Player::getVolume() const {
+    return volume_;
 }
 
 // void Player::seek(double pos) {
@@ -338,7 +358,6 @@ void Player::demuxThreadFunc()
         int ret = av_read_frame(fmtCtx_,pkt);
         if(ret < 0){
             if(ret == AVERROR_EOF && !isEof_){
-                qDebug()<<"yes";
                 isEof_ = true;
                 audioPktQ_.setStop(true);
                 videoPktQ_.setStop(true);
@@ -509,6 +528,7 @@ void Player::videoThreadFunc()
                 break;
             if(ret < 0) break;
 
+            if (!running_) break;
             double pts = 0.0;
             if(frame->best_effort_timestamp != AV_NOPTS_VALUE)
                 pts = frame->best_effort_timestamp * av_q2d(vtb);
@@ -530,10 +550,12 @@ void Player::videoThreadFunc()
                 // 通知ui渲染
                 std::shared_ptr<Yuv420PFrame> yuvFrame(std::make_shared<Yuv420PFrame>(frame));
                 emit videoWidget_->setFrame(yuvFrame);
+                // 释放frame
                 av_frame_unref(frame);
             }
         }
     }
+\
     qDebug()<<"video quit";
     av_frame_free(&frame);
 }

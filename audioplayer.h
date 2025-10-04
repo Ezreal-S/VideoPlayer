@@ -57,11 +57,16 @@ public:
     void setEof(bool b);
 
     bool isEof() const;
+
+    void setVolume(float volume);
+
+    float getVolume() const;
 private:
     AudioRingBuffer buffer_;
     int outRate_;
     int outChannels_;
     int bytesPerSample_;
+    float volume_ = 1.f;
     std::atomic<double> audioClock_;
     static void audioCallbackWrapper(void* userdata, uint8_t* stream, int len);
     void audioCallback(uint8_t* stream, int len);

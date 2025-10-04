@@ -40,6 +40,10 @@ void MainWindow::connectInit()
         }
 
     });
+
+    // 连接进度条更新
+    connect(this->player,&Player::playbackProgress,ui->ctrlBar,&CtrlBar::updateProgress,Qt::QueuedConnection);
+
     // 连接停止按钮事件
     connect(ui->ctrlBar,&CtrlBar::stopClicked,this,[this]{
         player->stop();
@@ -47,7 +51,7 @@ void MainWindow::connectInit()
         // 停止播放后应该更新播放/暂停键状态
         emit ui->ctrlBar->updatePlayBtnState(false);
         // 更新进度条信息
-        emit this->player->playbackProgress(0,0);
+        emit this->player->playbackProgress(0.0,0.0);
     });
 
     // 连接播放/暂停按钮的点击事件
@@ -71,11 +75,10 @@ void MainWindow::connectInit()
         }
 
     });
-    // 连接进度条更新
-    connect(this->player,&Player::playbackProgress,ui->ctrlBar,&CtrlBar::updateProgress);
+
     // 连接进度条移动seek
     connect(ui->ctrlBar, &CtrlBar::seekRequested, player, [this](double pos){
-        player->seek(pos); // 自己实现 seek，跳到对应时间
+        player->seek(pos);
     });
 
     //连接播放完成信号
@@ -85,7 +88,10 @@ void MainWindow::connectInit()
         // 停止播放后应该更新播放/暂停键状态
         emit ui->ctrlBar->updatePlayBtnState(false);
         // 更新进度条信息
-        emit this->player->playbackProgress(0,0);
+        emit this->player->playbackProgress(0.0,0.0);
     });
-
+    // 修改音量
+    connect(this->ui->ctrlBar,&CtrlBar::volumeChanged,this,[this](float vol){
+        this->player->setVolume(vol);
+    });
 }
