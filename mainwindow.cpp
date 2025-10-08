@@ -58,6 +58,11 @@ void MainWindow::connectInit()
         ui->listWidget->playNext();
     });
 
+    // 改变播放模式
+    connect(ui->ctrlBar,&CtrlBar::changeModel,this,[this](int mode){
+        ui->listWidget->setPlayMode((PlaylistWidget::PlayMode)mode);
+    });
+
     // 连接进度条更新
     connect(this->player,&Player::playbackProgress,ui->ctrlBar,&CtrlBar::updateProgress,Qt::QueuedConnection);
 
@@ -106,6 +111,12 @@ void MainWindow::connectInit()
         emit ui->ctrlBar->updatePlayBtnState(false);
         // 更新进度条信息
         emit this->player->playbackProgress(0.0,0.0);
+        // 根据播放模式判断是否继续播放
+        auto mode = ui->listWidget->getPlayMode();
+        if(mode == PlaylistWidget::PlayMode::Once){
+            return;
+        }
+        ui->listWidget->playNext();
     });
     // 修改音量
     connect(this->ui->ctrlBar,&CtrlBar::volumeChanged,this,[this](float vol){

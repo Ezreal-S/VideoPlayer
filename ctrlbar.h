@@ -30,6 +30,8 @@ signals:
     void volumeChanged(float vol);
     // 修改视频显示比例信号
     void aspectRatioChanged(int value);
+    // 改变播放模式
+    void changeModel(int model);
 public slots:
     // 更新进度条槽函数
     void updateProgress(double currentTime, double totalTime);

@@ -1,6 +1,8 @@
 #include "PlaylistWidget.h"
 #include <QStandardPaths>
+#include <QRandomGenerator>
 #include <QAction>
+#include <QDebug>
 
 PlaylistWidget::PlaylistWidget(QWidget *parent)
     : QListWidget(parent)
@@ -38,7 +40,32 @@ void PlaylistWidget::loadFromFile(const QString &filePath) {
 
 void PlaylistWidget::playNext() {
     if (count() == 0) return;
-    int newIndex = (currentPlayingIndex + 1) % count(); // 循环播放
+
+    int newIndex = (currentPlayingIndex + 1) % count();
+    qDebug()<<playMode;
+    switch (playMode) {
+    case Sequential:
+        if (currentPlayingIndex < count() - 1)
+            newIndex = currentPlayingIndex + 1;
+        else
+            return; // 到最后一首就停止
+        break;
+
+    case LoopOne:
+        newIndex = currentPlayingIndex; // 重复当前
+        break;
+
+    case LoopAll:
+        newIndex = (currentPlayingIndex + 1) % count();
+        break;
+
+    case Random:
+        newIndex = QRandomGenerator::global()->bounded(count());
+        break;
+    default:
+        break;
+    }
+
     QListWidgetItem *item = this->item(newIndex);
     if (item) {
         setPlayingItem(newIndex);
@@ -48,7 +75,32 @@ void PlaylistWidget::playNext() {
 
 void PlaylistWidget::playPrevious() {
     if (count() == 0) return;
-    int newIndex = (currentPlayingIndex - 1 + count()) % count(); // 循环播放
+
+    int newIndex = (currentPlayingIndex - 1 + count()) % count();
+
+    switch (playMode) {
+    case Sequential:
+        if (currentPlayingIndex > 0)
+            newIndex = currentPlayingIndex - 1;
+        else
+            return; // 第一首就停止
+        break;
+
+    case LoopOne:
+        newIndex = currentPlayingIndex;
+        break;
+
+    case LoopAll:
+        newIndex = (currentPlayingIndex - 1 + count()) % count();
+        break;
+
+    case Random:
+        newIndex = QRandomGenerator::global()->bounded(count());
+        break;
+    default:
+        break;
+    }
+
     QListWidgetItem *item = this->item(newIndex);
     if (item) {
         setPlayingItem(newIndex);
@@ -93,7 +145,7 @@ void PlaylistWidget::setPlayingItem(int newIndex) {
             font.setBold(false);
             oldItem->setFont(font);
             oldItem->setForeground(Qt::black);
-            oldItem->setIcon(QIcon());
+            //oldItem->setIcon(QIcon());
         }
     }
 
@@ -104,7 +156,7 @@ void PlaylistWidget::setPlayingItem(int newIndex) {
         font.setBold(true);
         newItem->setFont(font);
         newItem->setForeground(Qt::red);
-        newItem->setIcon(QIcon(":/icons/playing.png")); // 你可以换成自己的图标
+        //newItem->setIcon(QIcon(":/icons/playing.png")); // 你可以换成自己的图标
     }
 
     currentPlayingIndex = newIndex;

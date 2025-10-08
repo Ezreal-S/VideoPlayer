@@ -77,6 +77,22 @@ CtrlBar::CtrlBar(QWidget *parent)
         emit nextClicked();
     });
 
+    connect(this->ui->model_btn,&QPushButton::clicked,this,[this](){
+        static int mode = 0;
+        mode = (mode + 1) % 5; // 四种模式循环
+
+
+        QString modeName;
+        switch (mode) {
+        case 0:     modeName = "只播一次"; break;
+        case 1:     modeName = "顺序播放"; break;
+        case 2:     modeName = "单曲循环"; break;
+        case 3:     modeName = "列表循环"; break;
+        case 4:     modeName = "随机播放"; break;
+        }
+        ui->model_btn->setText(modeName);
+        emit changeModel(mode);
+    });
 }
 
 CtrlBar::~CtrlBar()

@@ -190,8 +190,6 @@ void Player::stop()
     // 更新播放状态
     state_ = MediaState::Stop;
 
-    // // 发送进度更新信号，确保进度条复位
-    // emit this->playbackProgress(0.0,0.0);
     qDebug()<<"call stop";
 
 
