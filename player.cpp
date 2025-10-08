@@ -114,6 +114,7 @@ bool Player::play()
     audioPlayer_->setVolume(volume_);
     // 开启音频播放
     audioPlayer_->play();
+    //audioPlayer_->setSpeed_(1.2f);
     // 更新播放状态
     state_ = MediaState::Play;
     isEof_ = false;
@@ -160,9 +161,13 @@ void Player::stop()
     if(videoThread_.joinable())
         videoThread_.join();
 
+    // 此处如果音频输出器是暂停状态会导致死锁
+    // 因此退出音频线程前，需要修改音频输出器暂停状态
+    audioPlayer_->pause(false);
     if(audioThread_.joinable())
         audioThread_.join();
 
+    qDebug()<<"audioaa";
     // 清空包队列
     resetQueues();
 

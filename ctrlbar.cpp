@@ -68,6 +68,15 @@ CtrlBar::CtrlBar(QWidget *parent)
         emit aspectRatioChanged(mode);
     });
 
+    // 上一个被点击
+    connect(this->ui->pre_btn,&QPushButton::clicked,this,[this](){
+        emit preClicked();
+    });
+    // 下一个被点击
+    connect(this->ui->next_btn,&QPushButton::clicked,this,[this](){
+        emit nextClicked();
+    });
+
 }
 
 CtrlBar::~CtrlBar()

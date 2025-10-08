@@ -20,6 +20,8 @@ signals:
     void stopClicked();
     void playClicked();
     void pauseClicked();
+    void preClicked();
+    void nextClicked();
     // seek请求信号
     void seekRequested(double pos);
     // 更新播放器按钮状态信号

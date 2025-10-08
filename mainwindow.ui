@@ -76,7 +76,7 @@
         <number>0</number>
        </property>
        <item>
-        <widget class="QListWidget" name="listWidget">
+        <widget class="PlaylistWidget" name="listWidget">
          <property name="maximumSize">
           <size>
            <width>500</width>
@@ -102,6 +102,11 @@
    <class>VideoWidget</class>
    <extends>QOpenGLWidget</extends>
    <header location="global">videowidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>PlaylistWidget</class>
+   <extends>QListWidget</extends>
+   <header>playlistwidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

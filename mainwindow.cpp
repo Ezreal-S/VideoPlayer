@@ -24,7 +24,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::connectInit()
 {
-    connect(ui->ctrlBar,&CtrlBar::openFileClicked,[this](){
+    connect(ui->ctrlBar,&CtrlBar::openFileClicked,this,[this](){
         QString filePath = QFileDialog::getOpenFileName(
             this,
             tr("选择媒体文件"),
@@ -33,12 +33,29 @@ void MainWindow::connectInit()
             );
         if(!filePath.isEmpty()){
             qDebug()<<filePath;
+            ui->listWidget->loadFromFile(filePath);
             player->openFile(filePath.toStdString());
             player->play();
             // 开始播放后应该更新播放/暂停键状态
             emit ui->ctrlBar->updatePlayBtnState(true);
         }
 
+    });
+
+    // 连接播放列表双击播放事件
+    connect(ui->listWidget,&PlaylistWidget::playRequested,this,[this](const QString& filePath){
+        player->openFile(filePath.toStdString());
+        player->play();
+        // 开始播放后应该更新播放/暂停键状态
+        emit ui->ctrlBar->updatePlayBtnState(true);
+    });
+
+    // 连接播放上一个和播放下一个事件
+    connect(ui->ctrlBar,&CtrlBar::preClicked,this,[this](){
+        ui->listWidget->playPrevious();
+    });
+    connect(ui->ctrlBar,&CtrlBar::nextClicked,this,[this](){
+        ui->listWidget->playNext();
     });
 
     // 连接进度条更新
@@ -99,4 +116,6 @@ void MainWindow::connectInit()
     connect(this->ui->ctrlBar,&CtrlBar::aspectRatioChanged,this,[this](int val){
         ui->openGLWidget->setAspectRatioMode(val);
     });
+
+
 }

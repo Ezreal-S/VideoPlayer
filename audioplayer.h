@@ -8,6 +8,8 @@
 #include <condition_variable>
 #include <cstdint>
 
+
+
 extern "C"{
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -53,6 +55,7 @@ public:
     void setAudioClock(double v);
     double getAudioClock() const;
 
+    void setSpeed_(float speed);
 
     void setEof(bool b);
 
@@ -63,10 +66,12 @@ public:
     float getVolume() const;
 private:
     AudioRingBuffer buffer_;
+    // 变速处理器
     int outRate_;
     int outChannels_;
     int bytesPerSample_;
     float volume_ = 1.f;
+    float speed_ = 1.f;
     std::atomic<double> audioClock_;
     static void audioCallbackWrapper(void* userdata, uint8_t* stream, int len);
     void audioCallback(uint8_t* stream, int len);
