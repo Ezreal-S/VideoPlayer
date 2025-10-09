@@ -15,6 +15,12 @@ MainWindow::MainWindow(QWidget *parent)
     qApp->installEventFilter(this);
     player = new Player(ui->openGLWidget);
 
+    // 设置播放列表行为
+    ui->listWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); // 不显示横向滚动条
+    ui->listWidget->setTextElideMode(Qt::ElideRight);                     // 超出显示省略号
+    ui->listWidget->setWordWrap(false);                                   // 单行，不换行
+
+
     hideTimer = new QTimer(this);
     hideTimer->setSingleShot(true);
     // 如果超时，则隐藏控制栏
