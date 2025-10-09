@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-
+#include <QTimer>
 class Player;
 
 QT_BEGIN_NAMESPACE
@@ -20,8 +20,21 @@ public:
     ~MainWindow();
 
     void connectInit();
+    void keybindInit();
+
+private slots:
+    void onChangePlayState();
 private:
     Ui::MainWindow *ui;
     Player* player;
+    QTimer* hideTimer;
+
+    // 全屏切换
+    void toggleFullScreen();
+
+
+    // QObject interface
+public:
+    bool eventFilter(QObject *watched, QEvent *event);
 };
 #endif // MAINWINDOW_H

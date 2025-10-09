@@ -150,51 +150,41 @@ void AudioPlayer::audioCallbackWrapper(void *userdata, uint8_t *stream, int len)
     self->audioCallback(stream,len);
 }
 
-void AudioPlayer::audioCallback(uint8_t *stream, int len)
-{
-    if (buffer_.size() == 0) {
-        SDL_memset(stream, 0, len);
-        return;
-    }
-    size_t copied = buffer_.pop(stream,len);
-    if(copied < static_cast<size_t>(len)){
-        SDL_memset(stream + copied,0,len-copied);
-    }
-    audioClock_ = audioClock_ + double(copied)/(outChannels_*bytesPerSample_*outRate_);
-}
-
-// void AudioPlayer::audioCallback(uint8_t *stream, int len) {
-//     // 保证字节数是 short 对齐
-//     SDL_memset(stream, 0, len);
-//     if (!sonic_) return;
-
-//     int wantShorts = len / sizeof(short); // 要读取的 short 数（包含所有通道）
-//     if (wantShorts <= 0) return;
-
-//     // 临时缓冲存放 short
-//     // 注意：不要频繁分配内存，可将此缓冲作为成员复用以减少开销；这里为了示例用局部vector
-//     std::vector<short> outBuf(wantShorts);
-
-//     int gotShorts = sonic_->read(outBuf.data(), wantShorts);
-//     if (gotShorts <= 0) {
-//         // 没有可播放数据，保持静音
+// void AudioPlayer::audioCallback(uint8_t *stream, int len)
+// {
+//     if (buffer_.size() == 0) {
+//         SDL_memset(stream, 0, len);
 //         return;
 //     }
-
-//     // 将 short 数据复制到 stream（字节）
-//     size_t gotBytes = static_cast<size_t>(gotShorts) * sizeof(short);
-//     if (gotBytes > static_cast<size_t>(len)) gotBytes = len;
-//     memcpy(stream, outBuf.data(), gotBytes);
-
-//     // 更新 audioClock：gotShorts 包含所有通道的 short 数
-//     int frames = gotShorts / outChannels_; // 每帧包含 channels 个 short
-//     if (frames > 0) {
-//         audioClock_ = audioClock_ + (double(frames) / double(outRate_));
-
+//     size_t copied = buffer_.pop(stream,len);
+//     if(copied < static_cast<size_t>(len)){
+//         SDL_memset(stream + copied,0,len-copied);
 //     }
-
-//     // 剩余 len - gotBytes 部分已经被 memset 为 0（静音）
+//     audioClock_ = audioClock_ + double(copied)/(outChannels_*bytesPerSample_*outRate_);
 // }
+
+void AudioPlayer::audioCallback(uint8_t *stream, int len) {
+    SDL_memset(stream, 0, len); // 清空输出缓冲区
+
+    if (buffer_.size() == 0) {
+        return;
+    }
+
+    // 使用临时缓冲区
+    std::vector<uint8_t> temp(len);
+    size_t copied = buffer_.pop(temp.data(), len);
+
+    if (copied < static_cast<size_t>(len)) {
+        SDL_memset(temp.data() + copied, 0, len - copied);
+    }
+
+    // 应用音量控制 - 核心代码
+    int sdlVolume = static_cast<int>(volume_ * SDL_MIX_MAXVOLUME);
+    SDL_MixAudio(stream, temp.data(), len, sdlVolume);
+
+    // 更新音频时钟
+    audioClock_ = audioClock_ + double(copied) / (outChannels_ * bytesPerSample_ * outRate_);
+}
 
 
 // void AudioPlayer::audioCallback(uint8_t *stream, int len) {

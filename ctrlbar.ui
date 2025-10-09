@@ -139,16 +139,16 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="speed_cb">
+       <widget class="OverlayComboBox" name="speed_cb" native="true">
         <property name="minimumSize">
          <size>
-          <width>60</width>
+          <width>50</width>
           <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>60</width>
+          <width>50</width>
           <height>30</height>
          </size>
         </property>
@@ -203,12 +203,18 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="aspect_ratio_cb">
-        <property name="currentText">
-         <string/>
+       <widget class="OverlayComboBox" name="aspect_ratio_cb" native="true">
+        <property name="minimumSize">
+         <size>
+          <width>80</width>
+          <height>30</height>
+         </size>
         </property>
-        <property name="currentIndex">
-         <number>-1</number>
+        <property name="maximumSize">
+         <size>
+          <width>80</width>
+          <height>30</height>
+         </size>
         </property>
        </widget>
       </item>
@@ -433,6 +439,12 @@
    <class>VideoSlider</class>
    <extends>QSlider</extends>
    <header location="global">videoslider.h</header>
+  </customwidget>
+  <customwidget>
+   <class>OverlayComboBox</class>
+   <extends>QWidget</extends>
+   <header>overlaycombobox.h</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>

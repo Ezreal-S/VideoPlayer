@@ -3,17 +3,31 @@
 #include "player.h"
 #include <QFileDialog>
 #include <QDebug>
+#include <QShortcut>
+#include <QMouseEvent>
+#include <QComboBox>
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
 
-
+    qApp->installEventFilter(this);
     player = new Player(ui->openGLWidget);
+
+    hideTimer = new QTimer(this);
+    hideTimer->setSingleShot(true);
+    // 如果超时，则隐藏控制栏
+    connect(hideTimer,&QTimer::timeout,this,[=](){
+        if(isFullScreen()){
+            ui->ctrlBar->hide();
+            ui->listWidget->hide();
+        }
+    });
     // 初始化信号
     connectInit();
-
+    // 初始化热键绑定
+    keybindInit();
 }
 
 MainWindow::~MainWindow()
@@ -78,24 +92,7 @@ void MainWindow::connectInit()
 
     // 连接播放/暂停按钮的点击事件
     connect(ui->ctrlBar,&CtrlBar::playClicked,this,[this]{
-        auto state = player->getState();
-        if(state == MediaState::Stop){
-            if(player->play()){
-                emit ui->ctrlBar->updatePlayBtnState(true);
-                return;
-            }
-            emit ui->ctrlBar->updatePlayBtnState(false);
-            return;
-        }
-        if(state == MediaState::Play){
-            player->pause();
-            emit ui->ctrlBar->updatePlayBtnState(false);
-        }
-        else if(state == MediaState::Pause){
-            player->pause();
-            emit ui->ctrlBar->updatePlayBtnState(true);
-        }
-
+        onChangePlayState();
     });
 
     // 连接进度条移动seek
@@ -129,4 +126,73 @@ void MainWindow::connectInit()
     });
 
 
+}
+
+void MainWindow::keybindInit()
+{
+    // 空格切换播放/暂停
+    new QShortcut(QKeySequence(Qt::Key_Space),this,[=](){
+        onChangePlayState();
+    });
+    // F键切换全屏
+    new QShortcut(QKeySequence(Qt::Key_F),this,[=](){
+        toggleFullScreen();
+    });
+    // ESC键退出全屏
+    new QShortcut(QKeySequence(Qt::Key_Escape),this,[=](){
+        if(isFullScreen())
+            toggleFullScreen();
+    });
+}
+
+void MainWindow::onChangePlayState()
+{
+    auto state = player->getState();
+    if(state == MediaState::Stop){
+        if(player->play()){
+            emit ui->ctrlBar->updatePlayBtnState(true);
+            return;
+        }
+        emit ui->ctrlBar->updatePlayBtnState(false);
+        return;
+    }
+    if(state == MediaState::Play){
+        player->pause();
+        emit ui->ctrlBar->updatePlayBtnState(false);
+    }
+    else if(state == MediaState::Pause){
+        player->pause();
+        emit ui->ctrlBar->updatePlayBtnState(true);
+    }
+}
+
+void MainWindow::toggleFullScreen() {
+    if (isFullScreen()) {
+        showNormal();   // 退出全屏
+        // 恢复 UI 控件
+        ui->listWidget->show();
+        ui->ctrlBar->show();
+        hideTimer->stop();
+    } else {
+        showFullScreen(); // 进入全屏
+        // 隐藏 UI 控件，只保留视频
+        ui->listWidget->hide();
+        ui->ctrlBar->hide();
+    }
+}
+
+
+bool MainWindow::eventFilter(QObject *obj, QEvent *event)
+{
+    if(isFullScreen() && event->type() == QEvent::MouseMove){
+        auto* mouseEvent = static_cast<QMouseEvent*>(event);
+        // 显示控制栏和播放列表
+        ui->ctrlBar->show();
+        ui->listWidget->show();
+        // 重置定时器
+        // 3秒后隐藏
+        hideTimer->start(3000);
+    }
+
+    return QMainWindow::eventFilter(obj,event);
 }

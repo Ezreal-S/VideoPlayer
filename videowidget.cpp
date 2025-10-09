@@ -48,6 +48,7 @@ void VideoWidget::setAspectRatioMode(int mode)
     update();
 }
 
+
 void VideoWidget::slotSetFrame(std::shared_ptr<Yuv420PFrame> frame) {
     if (frame == nullptr) {
         // 实现stop时设置opengl界面为黑色
@@ -211,3 +212,4 @@ void VideoWidget::updateVertices()
     vertices_[4] = -1.0f + 2*x; vertices_[5] =  1.0f - 2*y; // 左上
     vertices_[6] =  1.0f - 2*x; vertices_[7] =  1.0f - 2*y; // 右上
 }
+

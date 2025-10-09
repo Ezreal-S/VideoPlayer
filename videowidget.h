@@ -4,6 +4,7 @@
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
+#include <QBoxLayout>
 #include <memory>
 #include <mutex>
 #include "yuv420pframe.h"
@@ -26,6 +27,8 @@ public:
     // 设置新的比例模式
     void setAspectRatioMode(int mode);
     AspectRatioMode aspectRatioMode() const { return aspectRatioMode_; }
+
+
 
 signals:
     void setFrame(std::shared_ptr<Yuv420PFrame> frame);
@@ -55,6 +58,8 @@ private:
         0.0f, 0.0f,   // 左上
         1.0f, 0.0f    // 右上
     };
+
+
 };
 
 #endif // VIDEOWIDGET_H

@@ -4,12 +4,15 @@
 #include <QDebug>
 #include <sstream>
 #include <iomanip>
+#include <QAbstractItemView>
 
 CtrlBar::CtrlBar(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::CtrlBar)
 {
     ui->setupUi(this);
+
+
     // 倍速选择器初始化
     ui->speed_cb->addItem("0.5x",0.5);
     ui->speed_cb->addItem("1.0x",1.0);
@@ -26,6 +29,8 @@ CtrlBar::CtrlBar(QWidget *parent)
     ui->aspect_ratio_cb->addItem("16:9", 2);
     ui->aspect_ratio_cb->addItem("4:3", 3);
     ui->aspect_ratio_cb->addItem("1:1", 4);
+
+
 
     // 初始化信号连接
     connect(this->ui->open_btn,&QPushButton::clicked,this,[this]{
@@ -63,7 +68,7 @@ CtrlBar::CtrlBar(QWidget *parent)
     });
 
     // 视频播放比例改变
-    connect(this->ui->aspect_ratio_cb,QOverload<int>::of(&QComboBox::currentIndexChanged),this, [this]{
+    connect(this->ui->aspect_ratio_cb,QOverload<int>::of(&OverlayComboBox::currentIndexChanged),this, [this]{
         int mode = this->ui->aspect_ratio_cb->currentData().toInt();
         emit aspectRatioChanged(mode);
     });

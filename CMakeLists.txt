@@ -45,6 +45,9 @@ else()
             audioplayer.h audioplayer.cpp
             yuv420pframe.h yuv420pframe.cpp
             playlistwidget.h playlistwidget.cpp
+            overlaycombobox.h overlaycombobox.cpp
+            overlaycombobox.h overlaycombobox.cpp
+
 
 
 
